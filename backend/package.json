@@ -1,0 +1,21 @@
+{
+  "name": "voiceflow-backend",
+  "version": "1.0.0",
+  "description": "Voiceflow AI Chatbot Backend with PostgreSQL, Groq, Hugging Face, and Conversational Memory",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "@huggingface/inference": "^3.3.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "groq-sdk": "^0.15.0",
+    "multer": "^1.4.5-lts.1",
+    "node-fetch": "^3.3.2",
+    "pg": "^8.13.3"
+  }
+}
