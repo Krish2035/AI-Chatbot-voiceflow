@@ -16,14 +16,22 @@ export const inMemoryStore = {
 
 export const initDB = async () => {
   try {
-    pool = new Pool({
-      host: process.env.PGHOST || 'localhost',
-      port: parseInt(process.env.PGPORT || '5432', 10),
-      database: process.env.PGDATABASE || 'voiceflow_db',
-      user: process.env.PGUSER || 'postgres',
-      password: process.env.PGPASSWORD || 'postgres',
-      connectionTimeoutMillis: 3000,
-    });
+    const dbConfig = process.env.DATABASE_URL
+      ? {
+          connectionString: process.env.DATABASE_URL,
+          ssl: process.env.DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false },
+          connectionTimeoutMillis: 5000,
+        }
+      : {
+          host: process.env.PGHOST || 'localhost',
+          port: parseInt(process.env.PGPORT || '5432', 10),
+          database: process.env.PGDATABASE || 'voiceflow_db',
+          user: process.env.PGUSER || 'postgres',
+          password: process.env.PGPASSWORD || 'postgres',
+          connectionTimeoutMillis: 3000,
+        };
+
+    pool = new Pool(dbConfig);
 
     // Test connection
     const client = await pool.connect();
