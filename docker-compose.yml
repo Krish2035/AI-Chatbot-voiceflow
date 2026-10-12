@@ -1,0 +1,184 @@
+version: '3.8'
+
+services:
+  # ===================================================
+  # 1. NGINX LOAD BALANCER & REVERSE PROXY
+  # Distributes incoming traffic across backend replicas
+  # ===================================================
+  load-balancer:
+    image: nginx:alpine
+    container_name: voiceflow-load-balancer
+    restart: always
+    ports:
+      - "80:80"       # Web standard HTTP port
+      - "5000:80"     # Backward-compatible API & Web port
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend-1
+      - backend-2
+      - frontend
+    networks:
+      - voiceflow-network
+
+  # ===================================================
+  # 2. BACKEND CLUSTER REPLICA 1
+  # ===================================================
+  backend-1:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: voiceflow-backend-1
+    restart: always
+    env_file:
+      - ./backend/.env
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
+      - FRONTEND_URL=http://localhost
+      - PGHOST=postgres-primary
+      - PGPORT=5432
+      - PGDATABASE=voiceflow_db
+      - PGUSER=postgres
+      - PGPASSWORD=postgrespassword
+      - PG_REPLICA_HOST=postgres-replica
+      - PG_REPLICA_PORT=5432
+      - PG_REPLICA_DATABASE=voiceflow_db
+      - PG_REPLICA_USER=postgres
+      - PG_REPLICA_PASSWORD=postgrespassword
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=super_secret_jwt_key_voiceflow_tier1_2026_top_tier_prod_ready
+      - JWT_EXPIRES_IN=7d
+      - DEFAULT_MODEL=llama-3.3-70b-versatile
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - voiceflow-network
+
+  # ===================================================
+  # 3. BACKEND CLUSTER REPLICA 2
+  # ===================================================
+  backend-2:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: voiceflow-backend-2
+    restart: always
+    env_file:
+      - ./backend/.env
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
+      - FRONTEND_URL=http://localhost
+      - PGHOST=postgres-primary
+      - PGPORT=5432
+      - PGDATABASE=voiceflow_db
+      - PGUSER=postgres
+      - PGPASSWORD=postgrespassword
+      - PG_REPLICA_HOST=postgres-replica
+      - PG_REPLICA_PORT=5432
+      - PG_REPLICA_DATABASE=voiceflow_db
+      - PG_REPLICA_USER=postgres
+      - PG_REPLICA_PASSWORD=postgrespassword
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=super_secret_jwt_key_voiceflow_tier1_2026_top_tier_prod_ready
+      - JWT_EXPIRES_IN=7d
+      - DEFAULT_MODEL=llama-3.3-70b-versatile
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - voiceflow-network
+
+  # ===================================================
+  # 4. FRONTEND SINGLE PAGE APPLICATION
+  # ===================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: voiceflow-frontend
+    restart: always
+    networks:
+      - voiceflow-network
+
+  # ===================================================
+  # 5. POSTGRESQL PRIMARY (Write Master)
+  # ===================================================
+  postgres-primary:
+    image: postgres:16-alpine
+    container_name: voiceflow-postgres-primary
+    restart: always
+    environment:
+      POSTGRES_DB: voiceflow_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata_primary:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d voiceflow_db"]
+      interval: 4s
+      timeout: 5s
+      retries: 5
+    networks:
+      - voiceflow-network
+
+  # ===================================================
+  # 6. POSTGRESQL READ REPLICA (Read Scaling)
+  # ===================================================
+  postgres-replica:
+    image: postgres:16-alpine
+    container_name: voiceflow-postgres-replica
+    restart: always
+    environment:
+      POSTGRES_DB: voiceflow_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata_replica:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d voiceflow_db"]
+      interval: 4s
+      timeout: 5s
+      retries: 5
+    networks:
+      - voiceflow-network
+
+  # ===================================================
+  # 7. REDIS DISTRIBUTED CACHE & BULLMQ MESSAGE BROKER
+  # ===================================================
+  redis:
+    image: redis:7-alpine
+    container_name: voiceflow-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 4s
+      timeout: 3s
+      retries: 5
+    networks:
+      - voiceflow-network
+
+networks:
+  voiceflow-network:
+    driver: bridge
+
+volumes:
+  pgdata_primary:
+  pgdata_replica:
+  redis_data:

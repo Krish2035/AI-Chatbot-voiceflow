@@ -1,5 +1,127 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
+const TOKEN_KEY = 'voiceflow_auth_token';
+
+export const getAuthToken = () => {
+  return localStorage.getItem(TOKEN_KEY);
+};
+
+export const setAuthToken = (token) => {
+  if (token) {
+    localStorage.setItem(TOKEN_KEY, token);
+  } else {
+    localStorage.removeItem(TOKEN_KEY);
+  }
+};
+
+export const clearAuthToken = () => {
+  localStorage.removeItem(TOKEN_KEY);
+};
+
+const getAuthHeaders = () => {
+  const token = getAuthToken();
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+};
+
+/**
+ * ========================================================
+ * AUTHENTICATION APIS (JWT + FIREBASE GOOGLE)
+ * ========================================================
+ */
+
+/**
+ * Register with email, password, and name
+ */
+export const registerWithEmail = async ({ email, password, displayName }) => {
+  const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, displayName })
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.details || data.error || 'Registration failed');
+  }
+
+  if (data.token) {
+    setAuthToken(data.token);
+  }
+  return data;
+};
+
+/**
+ * Log in with email and password
+ */
+export const loginWithEmail = async ({ email, password }) => {
+  const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.details || data.error || 'Login failed');
+  }
+
+  if (data.token) {
+    setAuthToken(data.token);
+  }
+  return data;
+};
+
+/**
+ * Exchange Firebase Google credentials with backend for JWT session
+ */
+export const authWithGoogle = async (googlePayload) => {
+  const response = await fetch(`${API_BASE_URL}/api/auth/google`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(googlePayload)
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.details || data.error || 'Google authentication failed');
+  }
+
+  if (data.token) {
+    setAuthToken(data.token);
+  }
+  return data;
+};
+
+/**
+ * Get current authenticated user profile
+ */
+export const fetchCurrentUser = async () => {
+  const token = getAuthToken();
+  if (!token) return null;
+
+  const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+    headers: getAuthHeaders()
+  });
+
+  if (!response.ok) {
+    clearAuthToken();
+    return null;
+  }
+
+  const data = await response.json();
+  return data.user || null;
+};
+
+/**
+ * ========================================================
+ * CHAT & VOICE APIS
+ * ========================================================
+ */
+
 /**
  * Send a chat message to backend with conversational memory
  */
@@ -12,9 +134,7 @@ export const sendChatMessage = async ({
 }) => {
   const response = await fetch(`${API_BASE_URL}/api/chat`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
+    headers: getAuthHeaders(),
     body: JSON.stringify({
       message,
       conversationId,
@@ -43,7 +163,7 @@ export const sendChatMessage = async ({
 };
 
 /**
- * Check backend health, database status, and API key status
+ * Check backend health, database status, redis, and API key status
  */
 export const checkHealth = async () => {
   const response = await fetch(`${API_BASE_URL}/api/health`);
@@ -54,10 +174,18 @@ export const checkHealth = async () => {
 };
 
 /**
- * Fetch all conversations from PostgreSQL
+ * ========================================================
+ * CONVERSATION HISTORY & SEARCH APIS
+ * ========================================================
+ */
+
+/**
+ * Fetch all conversations from PostgreSQL / Read Replica
  */
 export const fetchConversations = async () => {
-  const response = await fetch(`${API_BASE_URL}/api/history/conversations`);
+  const response = await fetch(`${API_BASE_URL}/api/history/conversations`, {
+    headers: getAuthHeaders()
+  });
   if (!response.ok) {
     throw new Error('Failed to fetch conversation history');
   }
@@ -65,12 +193,31 @@ export const fetchConversations = async () => {
 };
 
 /**
- * Fetch full message turns for a conversation from PostgreSQL
+ * Fetch full message turns for a conversation
  */
 export const fetchConversationMessages = async (conversationId) => {
-  const response = await fetch(`${API_BASE_URL}/api/history/conversations/${conversationId}`);
+  const response = await fetch(`${API_BASE_URL}/api/history/conversations/${conversationId}`, {
+    headers: getAuthHeaders()
+  });
   if (!response.ok) {
     throw new Error('Failed to fetch conversation messages');
+  }
+  return response.json();
+};
+
+/**
+ * Search history via backend Full-Text Indexing
+ */
+export const searchHistory = async (query, conversationId = null) => {
+  let url = `${API_BASE_URL}/api/history/search?q=${encodeURIComponent(query)}`;
+  if (conversationId) {
+    url += `&conversationId=${encodeURIComponent(conversationId)}`;
+  }
+  const response = await fetch(url, {
+    headers: getAuthHeaders()
+  });
+  if (!response.ok) {
+    throw new Error('Search failed');
   }
   return response.json();
 };
@@ -81,7 +228,7 @@ export const fetchConversationMessages = async (conversationId) => {
 export const createNewConversation = async (title = 'New Conversation') => {
   const response = await fetch(`${API_BASE_URL}/api/history/conversations`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(),
     body: JSON.stringify({ title })
   });
   if (!response.ok) {
@@ -91,11 +238,12 @@ export const createNewConversation = async (title = 'New Conversation') => {
 };
 
 /**
- * Delete a specific conversation session from PostgreSQL
+ * Delete a specific conversation session
  */
 export const deleteConversationSession = async (conversationId) => {
   const response = await fetch(`${API_BASE_URL}/api/history/conversations/${conversationId}`, {
-    method: 'DELETE'
+    method: 'DELETE',
+    headers: getAuthHeaders()
   });
   if (!response.ok) {
     throw new Error('Failed to delete conversation');
@@ -108,7 +256,8 @@ export const deleteConversationSession = async (conversationId) => {
  */
 export const clearAllChatHistory = async () => {
   const response = await fetch(`${API_BASE_URL}/api/history/clear`, {
-    method: 'DELETE'
+    method: 'DELETE',
+    headers: getAuthHeaders()
   });
   if (!response.ok) {
     throw new Error('Failed to clear history');
@@ -120,8 +269,15 @@ export const clearAllChatHistory = async () => {
  * Voice roundtrip chat via audio upload
  */
 export const sendVoiceChat = async (formData) => {
+  const token = getAuthToken();
+  const headers = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${API_BASE_URL}/api/voice/chat`, {
     method: 'POST',
+    headers,
     body: formData
   });
   if (!response.ok) {
@@ -132,10 +288,18 @@ export const sendVoiceChat = async (formData) => {
 };
 
 export default {
+  registerWithEmail,
+  loginWithEmail,
+  authWithGoogle,
+  fetchCurrentUser,
+  getAuthToken,
+  setAuthToken,
+  clearAuthToken,
   sendChatMessage,
   checkHealth,
   fetchConversations,
   fetchConversationMessages,
+  searchHistory,
   createNewConversation,
   deleteConversationSession,
   clearAllChatHistory,

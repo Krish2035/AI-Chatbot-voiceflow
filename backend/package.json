@@ -10,12 +10,21 @@
   },
   "dependencies": {
     "@huggingface/inference": "^3.3.6",
+    "bcryptjs": "^3.0.3",
+    "bullmq": "^6.3.13",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
+    "drizzle-kit": "^0.31.11",
+    "drizzle-orm": "^0.45.4",
     "express": "^4.21.2",
+    "express-rate-limit": "^8.7.1",
     "groq-sdk": "^0.15.0",
+    "ioredis": "^6.0.0",
+    "jsonwebtoken": "^9.0.3",
     "multer": "^1.4.5-lts.1",
     "node-fetch": "^3.3.2",
-    "pg": "^8.13.3"
+    "pg": "^8.13.3",
+    "swagger-jsdoc": "^6.3.0",
+    "swagger-ui-express": "^5.0.1"
   }
 }

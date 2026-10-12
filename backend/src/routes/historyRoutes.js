@@ -6,16 +6,47 @@ import {
   deleteConversation,
   clearAllConversations
 } from '../services/memoryService.js';
+import { searchMessages } from '../services/searchService.js';
+import { optionalAuth } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 /**
- * GET /api/history/conversations
- * Get list of all conversation sessions
+ * GET /api/history/search
+ * Search messages and conversations via indexed full-text search
  */
-router.get('/conversations', async (req, res) => {
+router.get('/search', optionalAuth, async (req, res) => {
   try {
-    const conversations = await listConversations();
+    const { q, conversationId, limit } = req.query;
+    if (!q || !q.trim()) {
+      return res.status(400).json({ error: 'Search query parameter "q" is required.' });
+    }
+
+    const userId = req.user?.userId || null;
+    const searchData = await searchMessages(q, {
+      conversationId,
+      userId,
+      limit
+    });
+
+    return res.json({
+      success: true,
+      ...searchData
+    });
+  } catch (error) {
+    console.error('❌ Search error:', error.message);
+    res.status(500).json({ error: 'Search failed', details: error.message });
+  }
+});
+
+/**
+ * GET /api/history/conversations
+ * Get list of conversation sessions (filtered by user if authenticated)
+ */
+router.get('/conversations', optionalAuth, async (req, res) => {
+  try {
+    const userId = req.user?.userId || null;
+    const conversations = await listConversations(userId);
     res.json({ success: true, conversations });
   } catch (error) {
     console.error('❌ Error fetching conversations:', error.message);
@@ -42,10 +73,11 @@ router.get('/conversations/:id', async (req, res) => {
  * POST /api/history/conversations
  * Create a new conversation session
  */
-router.post('/conversations', async (req, res) => {
+router.post('/conversations', optionalAuth, async (req, res) => {
   try {
     const { title = 'New Conversation' } = req.body;
-    const newId = await ensureConversation(null, title);
+    const userId = req.user?.userId || null;
+    const newId = await ensureConversation(null, title, userId);
     res.json({ success: true, conversationId: newId, title });
   } catch (error) {
     console.error('❌ Error creating conversation:', error.message);
@@ -70,14 +102,15 @@ router.delete('/conversations/:id', async (req, res) => {
 
 /**
  * DELETE /api/history/clear
- * Clear all conversations
+ * Clear conversations (clears current user's chats or all if guest)
  */
-router.delete('/clear', async (req, res) => {
+router.delete('/clear', optionalAuth, async (req, res) => {
   try {
-    await clearAllConversations();
-    res.json({ success: true, message: 'All conversations cleared' });
+    const userId = req.user?.userId || null;
+    await clearAllConversations(userId);
+    res.json({ success: true, message: 'Conversations cleared successfully' });
   } catch (error) {
-    console.error('❌ Error clearing all conversations:', error.message);
+    console.error('❌ Error clearing conversations:', error.message);
     res.status(500).json({ error: 'Failed to clear conversations', details: error.message });
   }
 });

@@ -1,11 +1,13 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import ChatContainer from './components/ChatContainer';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
+import AuthModal from './components/AuthModal';
 import useVoiceflow from './hooks/useVoiceflow';
 import useChat from './hooks/useChat';
 import usePWA from './hooks/usePWA';
+import useAuth from './hooks/useAuth';
 import './App.css';
 
 export function App() {
@@ -13,6 +15,9 @@ export function App() {
 
   // Initialize Progressive Web App Hook
   const pwaHook = usePWA();
+
+  // Initialize Authentication Hook (JWT + Firebase Google)
+  const authHook = useAuth();
 
   // Initialize Voiceflow Hook (Speech recognition & Text-to-speech)
   const voiceHook = useVoiceflow({
@@ -41,10 +46,16 @@ export function App() {
     selectConversation,
     startNewChat,
     deleteConversation,
-    clearAllHistory
+    clearAllHistory,
+    refreshConversations
   } = useChat({
     onNewAssistantMessage: handleNewAssistantMessage
   });
+
+  // Re-fetch conversation history whenever auth state changes
+  useEffect(() => {
+    refreshConversations();
+  }, [authHook.user, refreshConversations]);
 
   return (
     <div className="app-layout">
@@ -57,7 +68,7 @@ export function App() {
         />
       )}
 
-      {/* Sidebar for Persistent Memory Sessions */}
+      {/* Sidebar for Persistent Memory Sessions & Search */}
       <Sidebar
         conversationsList={conversationsList}
         activeConversationId={conversationId}
@@ -71,11 +82,13 @@ export function App() {
         isInstallable={pwaHook.isInstallable}
         isInstalled={pwaHook.isInstalled}
         promptInstall={pwaHook.promptInstall}
+        user={authHook.user}
+        onOpenAuthModal={authHook.openAuthModal}
       />
 
       {/* Main Chat Interface */}
       <main className="main-content">
-        {/* Top Header */}
+        {/* Top Header with Profile & Auth trigger */}
         <Header
           serverHealth={serverHealth}
           provider={provider}
@@ -91,7 +104,41 @@ export function App() {
           isInstallable={pwaHook.isInstallable}
           isInstalled={pwaHook.isInstalled}
           promptInstall={pwaHook.promptInstall}
+          user={authHook.user}
+          onOpenAuthModal={authHook.openAuthModal}
+          onLogout={authHook.logout}
         />
+
+        {/* Home Page Guest Welcome Banner (When Not Logged In) */}
+        {!authHook.user && (
+          <div className="home-auth-banner">
+            <div className="home-auth-banner-content">
+              <div className="home-auth-banner-text">
+                <span className="home-auth-pill">Sign In / Sign Up</span>
+                <p className="home-auth-heading">Unlock Cloud Memory & Multi-Device Sync</p>
+                <p className="home-auth-sub">
+                  Continue with Google or use your email to persist multi-turn conversations.
+                </p>
+              </div>
+              <div className="home-auth-banner-actions">
+                <button
+                  onClick={() => authHook.openAuthModal('signin')}
+                  className="home-auth-signin-btn"
+                  id="btn-home-signin"
+                >
+                  Sign In
+                </button>
+                <button
+                  onClick={() => authHook.openAuthModal('signup')}
+                  className="home-auth-signup-btn"
+                  id="btn-home-signup"
+                >
+                  Create Account
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Chat & Voice Workspace */}
         <ChatContainer
@@ -103,6 +150,19 @@ export function App() {
           selectedModel={selectedModel}
         />
       </main>
+
+      {/* Modern Glassmorphic Auth Modal for Sign In, Sign Up & Continue with Google */}
+      <AuthModal
+        isOpen={authHook.isAuthModalOpen}
+        onClose={authHook.closeAuthModal}
+        mode={authHook.authModalMode}
+        onModeChange={authHook.setAuthModalMode}
+        onLogin={authHook.login}
+        onRegister={authHook.register}
+        onGoogleSignIn={authHook.signInWithGoogle}
+        isLoading={authHook.authActionLoading}
+        error={authHook.error}
+      />
 
       {/* PWA Floating Install Prompt & Update Alert */}
       <PWAInstallPrompt

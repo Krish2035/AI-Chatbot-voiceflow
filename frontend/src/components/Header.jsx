@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import { 
   Bot, 
   Database, 
@@ -7,7 +8,12 @@ import {
   Volume2, 
   VolumeX, 
   Radio,
-  Download
+  Download,
+  LogIn,
+  LogOut,
+  User as UserIcon,
+  ChevronDown,
+  Layers
 } from 'lucide-react';
 
 export const Header = ({
@@ -24,11 +30,17 @@ export const Header = ({
   isListening,
   isInstallable,
   isInstalled,
-  promptInstall
+  promptInstall,
+  user,
+  onOpenAuthModal,
+  onLogout
 }) => {
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+
   const isDbConnected = serverHealth?.services?.database?.connected;
   const groqCount = serverHealth?.services?.groqKeysCount || 0;
   const hfCount = serverHealth?.services?.huggingFaceKeysCount || 0;
+  const tierName = serverHealth?.architecture?.tier || 'High Availability';
 
   return (
     <header className="header-container">
@@ -54,6 +66,9 @@ export const Header = ({
               </h1>
               <span className="header-badge-memory">
                 MEMORY ACTIVE
+              </span>
+              <span className="header-badge-tier">
+                TOP 1% BACKEND
               </span>
             </div>
             <p className="header-subtitle">
@@ -130,13 +145,13 @@ export const Header = ({
           </button>
         )}
 
-        {/* PostgreSQL / Memory Status Pill (Desktop only) */}
+        {/* PostgreSQL / Drizzle Memory Status Pill (Desktop only) */}
         <div 
           className="header-db-pill"
-          title={isDbConnected ? 'PostgreSQL Database: Connected' : 'In-Memory Store Active'}
+          title={isDbConnected ? 'Drizzle ORM & Postgres: Connected (Read Replicas Ready)' : 'In-Memory Engine Active'}
         >
           <Database size={13} color={isDbConnected ? 'var(--accent-emerald)' : 'var(--accent-amber)'} />
-          <span>{isDbConnected ? 'Postgres DB' : 'Memory Store'}</span>
+          <span>{isDbConnected ? 'Drizzle ORM' : 'Memory Store'}</span>
           <span className={`badge-dot ${isDbConnected ? 'online' : 'warning'}`} />
         </div>
 
@@ -146,6 +161,69 @@ export const Header = ({
             <Radio size={13} />
             <span className="listening-label">Listening...</span>
           </div>
+        )}
+
+        {/* Authentication Section (User Profile or Sign In / Sign Up Trigger) */}
+        {user ? (
+          <div className="header-user-menu-wrapper">
+            <button
+              onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+              className="header-user-btn"
+              title={`Logged in as ${user.displayName || user.email}`}
+              id="btn-header-profile"
+            >
+              {user.avatarUrl ? (
+                <img 
+                  src={user.avatarUrl} 
+                  alt={user.displayName} 
+                  className="header-user-avatar-img"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="header-user-avatar-initials">
+                  {(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
+                </div>
+              )}
+              <span className="header-user-name">
+                {user.displayName?.split(' ')[0] || user.email?.split('@')[0]}
+              </span>
+              <ChevronDown size={13} className="header-user-chevron" />
+            </button>
+
+            {isProfileMenuOpen && (
+              <div className="header-profile-dropdown animate-fade-in">
+                <div className="dropdown-user-info">
+                  <p className="dropdown-user-name">{user.displayName || 'Voiceflow Member'}</p>
+                  <p className="dropdown-user-email">{user.email}</p>
+                  <span className="dropdown-user-provider">
+                    {user.authProvider === 'google' ? 'Google Account' : 'Voiceflow Account'}
+                  </span>
+                </div>
+                <div className="dropdown-divider" />
+                <button
+                  onClick={() => {
+                    setIsProfileMenuOpen(false);
+                    onLogout();
+                  }}
+                  className="dropdown-logout-btn"
+                  id="btn-dropdown-logout"
+                >
+                  <LogOut size={14} />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <button
+            onClick={() => onOpenAuthModal('signin')}
+            className="header-signin-btn"
+            title="Sign In or Register with Google / Email"
+            id="btn-header-signin"
+          >
+            <LogIn size={14} />
+            <span>Sign In</span>
+          </button>
         )}
       </div>
     </header>

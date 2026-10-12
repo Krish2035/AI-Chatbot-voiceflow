@@ -7,6 +7,8 @@ import {
   getConversationContext,
   updateConversationTitle
 } from '../services/memoryService.js';
+import { optionalAuth } from '../middleware/authMiddleware.js';
+import { chatLimiter } from '../middleware/rateLimiter.js';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -21,7 +23,7 @@ const upload = multer({
  * POST /api/voice/transcribe
  * Transcribe speech audio file to text
  */
-router.post('/transcribe', upload.single('audio'), async (req, res) => {
+router.post('/transcribe', chatLimiter, upload.single('audio'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No audio file uploaded' });
   }
@@ -62,9 +64,10 @@ router.post('/transcribe', upload.single('audio'), async (req, res) => {
  * POST /api/voice/chat
  * Complete voiceflow round-trip: (Audio or Text) -> LLM with Memory -> Response
  */
-router.post('/chat', upload.single('audio'), async (req, res) => {
+router.post('/chat', chatLimiter, optionalAuth, upload.single('audio'), async (req, res) => {
   let userText = req.body.text;
   const conversationIdParam = req.body.conversationId;
+  const userId = req.user?.userId || null;
 
   let tempFilePath = null;
 
@@ -89,7 +92,7 @@ router.post('/chat', upload.single('audio'), async (req, res) => {
     }
 
     const cleanText = userText.trim();
-    const conversationId = await ensureConversation(conversationIdParam, cleanText);
+    const conversationId = await ensureConversation(conversationIdParam, cleanText, userId);
     const conversationHistory = await getConversationContext(conversationId, 20);
 
     // Save user message

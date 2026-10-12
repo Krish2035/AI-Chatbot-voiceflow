@@ -1,13 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Plus, 
   MessageSquare, 
   Trash2, 
   Clock, 
   Database, 
-  X,
-  Layers,
-  Download
+  X, 
+  Layers, 
+  Download,
+  Search,
+  LogIn,
+  User as UserIcon,
+  ShieldCheck
 } from 'lucide-react';
 
 export const Sidebar = ({
@@ -22,8 +26,12 @@ export const Sidebar = ({
   serverHealth,
   isInstallable,
   isInstalled,
-  promptInstall
+  promptInstall,
+  user,
+  onOpenAuthModal
 }) => {
+  const [searchFilter, setSearchFilter] = useState('');
+
   const isDb = serverHealth?.services?.database?.connected;
 
   const handleSelect = (id) => {
@@ -39,6 +47,16 @@ export const Sidebar = ({
       onClose();
     }
   };
+
+  // Filter conversations by search term
+  const filteredConversations = conversationsList.filter((conv) => {
+    if (!searchFilter.trim()) return true;
+    const term = searchFilter.toLowerCase();
+    return (
+      (conv.title && conv.title.toLowerCase().includes(term)) ||
+      (conv.last_message && conv.last_message.toLowerCase().includes(term))
+    );
+  });
 
   return (
     <aside className={`sidebar-container ${isOpen ? 'open' : ''}`}>
@@ -73,20 +91,71 @@ export const Sidebar = ({
         </button>
       </div>
 
+      {/* Search Bar for Indexed Conversations & Messages */}
+      <div className="sidebar-search-box">
+        <Search size={14} className="sidebar-search-icon" />
+        <input
+          type="text"
+          placeholder="Search chats & memory..."
+          value={searchFilter}
+          onChange={(e) => setSearchFilter(e.target.value)}
+          className="sidebar-search-input"
+          aria-label="Search conversations"
+        />
+        {searchFilter && (
+          <button
+            onClick={() => setSearchFilter('')}
+            className="sidebar-search-clear"
+            title="Clear search"
+          >
+            <X size={12} />
+          </button>
+        )}
+      </div>
+
+      {/* User Status Card */}
+      <div className="sidebar-auth-card">
+        {user ? (
+          <div className="sidebar-user-info">
+            <div className="sidebar-user-avatar">
+              {user.avatarUrl ? (
+                <img src={user.avatarUrl} alt={user.displayName} referrerPolicy="no-referrer" />
+              ) : (
+                <span>{(user.displayName || user.email || 'U').charAt(0).toUpperCase()}</span>
+              )}
+            </div>
+            <div className="sidebar-user-details">
+              <span className="sidebar-user-name">{user.displayName || 'Member'}</span>
+              <span className="sidebar-user-status">Cloud Sync Active</span>
+            </div>
+          </div>
+        ) : (
+          <div className="sidebar-guest-prompt" onClick={() => onOpenAuthModal('signin')}>
+            <div className="sidebar-guest-icon">
+              <LogIn size={15} />
+            </div>
+            <div className="sidebar-guest-text">
+              <span className="sidebar-guest-title">Guest Mode</span>
+              <span className="sidebar-guest-subtitle">Sign in to sync memory</span>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Conversations List */}
       <div className="sidebar-sessions-list">
         <div className="sidebar-section-label">
-          Saved Sessions ({conversationsList.length})
+          {searchFilter ? `Search Results (${filteredConversations.length})` : `Saved Sessions (${conversationsList.length})`}
         </div>
 
-        {conversationsList.length === 0 ? (
+        {filteredConversations.length === 0 ? (
           <div className="sidebar-empty-state">
             <Clock size={24} className="sidebar-empty-icon" />
-            <p>No saved conversations yet.</p>
+            <p>{searchFilter ? 'No matching conversations.' : 'No saved conversations yet.'}</p>
             <p className="sidebar-empty-sub">Start speaking or typing to save memory.</p>
           </div>
         ) : (
-          conversationsList.map((conv) => {
+          filteredConversations.map((conv) => {
             const isActive = conv.id === activeConversationId;
             return (
               <div
@@ -151,7 +220,7 @@ export const Sidebar = ({
         <div className="sidebar-footer-row">
           <div className="sidebar-db-status">
             <Database size={13} color={isDb ? 'var(--accent-emerald)' : 'var(--accent-amber)'} />
-            <span>{isDb ? 'PostgreSQL' : 'In-Memory Store'}</span>
+            <span>{isDb ? 'Drizzle & Replicas' : 'Memory Store'}</span>
           </div>
           {conversationsList.length > 0 && (
             <button

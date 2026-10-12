@@ -7,14 +7,16 @@ import {
   saveMessage,
   getConversationContext
 } from '../services/memoryService.js';
+import { optionalAuth } from '../middleware/authMiddleware.js';
+import { chatLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
 
 /**
  * POST /api/chat
- * Main AI Chat endpoint with conversational memory support
+ * Main AI Chat endpoint with Drizzle ORM, conversational memory, rate limiting, and optional JWT auth
  */
-router.post('/', async (req, res) => {
+router.post('/', chatLimiter, optionalAuth, async (req, res) => {
   const {
     message,
     conversationId: clientConversationId,
@@ -28,15 +30,16 @@ router.post('/', async (req, res) => {
   }
 
   const cleanMessage = message.trim();
+  const userId = req.user?.userId || null;
 
   try {
-    // 1. Ensure conversation session exists
-    const conversationId = await ensureConversation(clientConversationId, cleanMessage);
+    // 1. Ensure conversation session exists (bound to user if logged in)
+    const conversationId = await ensureConversation(clientConversationId, cleanMessage, userId);
 
-    // 2. Fetch past conversational memory context
+    // 2. Fetch past conversational memory context from Read Replica
     const conversationHistory = await getConversationContext(conversationId, 20);
 
-    // 3. Save User message to persistent memory
+    // 3. Save User message to persistent storage & enqueue BullMQ indexing
     const userMsgRecord = await saveMessage(conversationId, 'user', cleanMessage);
 
     // If this is the start of the chat, update conversation title
@@ -57,7 +60,7 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // 5. Save AI response to persistent memory
+    // 5. Save AI response to persistent storage & enqueue BullMQ indexing
     const aiMsgRecord = await saveMessage(conversationId, 'assistant', aiResponse.text);
 
     // 6. Return response to client
