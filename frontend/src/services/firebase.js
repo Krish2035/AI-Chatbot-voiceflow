@@ -3,34 +3,53 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/
 
 /**
  * Confidential Firebase Configuration
- * Values are retrieved from .env (and protected by .gitignore)
+ * Values are retrieved strictly from environment variables (.env)
+ * Never hardcode confidential API keys or fallback strings in this file.
  */
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyAY4UmzzbUoH6MSOEunG9HjPcYqKblhKxg",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "ai-chatbot-voiceflow-2840c.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "ai-chatbot-voiceflow-2840c",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "ai-chatbot-voiceflow-2840c.firebasestorage.app",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "159576126320",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:159576126320:web:6d96f56a6bb8c8df1b95b5"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || '',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || ''
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const googleProvider = new GoogleAuthProvider();
+// Check if Firebase has been configured
+const isConfigured = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
 
-// Request profile and email scopes
-googleProvider.addScope('profile');
-googleProvider.addScope('email');
-googleProvider.setCustomParameters({
-  prompt: 'select_account'
-});
+let app = null;
+let auth = null;
+let googleProvider = null;
+
+if (isConfigured) {
+  try {
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    googleProvider = new GoogleAuthProvider();
+    googleProvider.addScope('profile');
+    googleProvider.addScope('email');
+    googleProvider.setCustomParameters({
+      prompt: 'select_account'
+    });
+  } catch (err) {
+    console.error('Firebase initialization error:', err);
+  }
+} else {
+  console.warn(
+    'Firebase configuration missing. Please provide VITE_FIREBASE_API_KEY in frontend/.env'
+  );
+}
 
 /**
  * Trigger Firebase Google Sign-In Popup
  * Returns formatted user credentials and ID token
  */
 export const signInWithGooglePopup = async () => {
+  if (!auth || !googleProvider) {
+    throw new Error('Firebase Authentication is not configured. Please add VITE_FIREBASE_API_KEY to frontend/.env');
+  }
+
   try {
     const result = await signInWithPopup(auth, googleProvider);
     const user = result.user;
@@ -53,6 +72,7 @@ export const signInWithGooglePopup = async () => {
  * Sign out from Firebase
  */
 export const signOutFirebase = async () => {
+  if (!auth) return;
   try {
     await signOut(auth);
   } catch (err) {

@@ -2,9 +2,12 @@
 node_modules/
 package-lock.json
 
-# Environment variables
+# Environment variables & secrets (CRITICAL)
 .env
-.env*.local
+.env.*
+!.env.example
+*.env
+*.env.local
 
 # Logs
 logs/
