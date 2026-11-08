@@ -1,7 +1,7 @@
 {
-  "name": "Voiceflow AI - Conversational Voice Assistant",
-  "short_name": "Voiceflow AI",
-  "description": "Multi-turn voice and chat assistant powered by Groq, Hugging Face, and PostgreSQL Memory",
+  "name": "AI Chatbot Voiceflow Vercel - Conversational Voice Assistant",
+  "short_name": "AI Chatbot Voiceflow",
+  "description": "AI Chatbot Voiceflow on Vercel: Multi-turn voice and chat assistant powered by Groq, Hugging Face, and PostgreSQL Memory",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0a0d14",

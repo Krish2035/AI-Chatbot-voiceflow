@@ -78,6 +78,10 @@ export const ChatContainer = ({
               <Brain size={28} color="var(--accent-cyan)" />
             </div>
 
+            <div className="empty-hero-badge-tag">
+              AI Chatbot Voiceflow &bull; Vercel
+            </div>
+
             <h2 className="empty-hero-title">
               How can I assist you today?
             </h2>

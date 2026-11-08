@@ -1,0 +1,17 @@
+# Robots.txt for AI Chatbot Voiceflow Vercel
+# Production Domain: https://ai-chatbot-voiceflow.vercel.app
+
+User-agent: *
+Allow: /
+
+# Googlebot specific rules
+User-agent: Googlebot
+Allow: /
+
+# Bingbot specific rules
+User-agent: Bingbot
+Allow: /
+
+# Sitemap Index
+Sitemap: https://ai-chatbot-voiceflow.vercel.app/sitemap.xml
+

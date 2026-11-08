@@ -61,8 +61,9 @@ export const Header = ({
           </div>
           <div className="header-brand-info">
             <div className="header-title-row">
-              <h1 className="header-title">
+              <h1 className="header-title" title="AI Chatbot Voiceflow Vercel">
                 Voiceflow AI
+                <span className="sr-only"> - AI Chatbot Voiceflow on Vercel</span>
               </h1>
               <span className="header-badge-memory">
                 MEMORY ACTIVE
@@ -72,7 +73,7 @@ export const Header = ({
               </span>
             </div>
             <p className="header-subtitle">
-              Multi-Turn Conversational Assistant
+              Multi-Turn Conversational AI Assistant
             </p>
           </div>
         </div>
